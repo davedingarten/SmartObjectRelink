@@ -1,5 +1,5 @@
 import { shortenPath } from "../core/project-path";
-import { registerHostNotifications, relinkSmartObjects, scanSmartObjects, unregisterHostNotifications } from "../core/photoshop";
+import { relinkSmartObjects, scanSmartObjects } from "../core/photoshop";
 import type { ScanResult, SmartObjectSummary } from "../types";
 
 const { storage } = require("uxp");
@@ -21,8 +21,6 @@ type PanelElements = {
 type PanelState = {
     busy: boolean;
     scanned: boolean;
-    pendingRefresh: boolean;
-    hostRefreshTimer: number | null;
     items: SmartObjectSummary[];
     occurrenceCount: number;
     documentCount: number;
@@ -33,16 +31,10 @@ const elements = {} as PanelElements;
 const state: PanelState = {
     busy: false,
     scanned: false,
-    pendingRefresh: false,
-    hostRefreshTimer: null,
     items: [],
     occurrenceCount: 0,
     documentCount: 0
 };
-
-window.addEventListener("beforeunload", () => {
-    void unregisterHostNotifications();
-});
 
 document.addEventListener("DOMContentLoaded", () => {
     void boot();
@@ -52,15 +44,6 @@ async function boot(): Promise<void> {
     cacheElements();
     bindEvents();
     render();
-
-    try {
-        await registerHostNotifications(() => {
-            onHostChange();
-        });
-    } catch (error) {
-        setStatus("Host notifications unavailable: " + simplifyError(error), "warning");
-        return;
-    }
 
     setStatus("Panel ready. Load smart objects to inspect the current document.", "info");
 }
@@ -93,7 +76,6 @@ function bindEvents(): void {
 
 async function loadSmartObjects(isReload: boolean): Promise<void> {
     if (state.busy) {
-        state.pendingRefresh = true;
         return;
     }
 
@@ -162,21 +144,6 @@ async function updateSmartObjects(): Promise<void> {
     } finally {
         setBusy(false);
     }
-}
-
-function onHostChange(): void {
-    if (!state.scanned) {
-        return;
-    }
-
-    if (state.hostRefreshTimer !== null) {
-        window.clearTimeout(state.hostRefreshTimer);
-    }
-
-    state.hostRefreshTimer = window.setTimeout(() => {
-        state.hostRefreshTimer = null;
-        void loadSmartObjects(true);
-    }, 250);
 }
 
 function applyScanResult(result: ScanResult): void {
@@ -277,11 +244,6 @@ function updateButtons(): void {
 function setBusy(nextBusy: boolean): void {
     state.busy = nextBusy;
     updateButtons();
-
-    if (!nextBusy && state.pendingRefresh) {
-        state.pendingRefresh = false;
-        void loadSmartObjects(true);
-    }
 }
 
 function setStatus(message: string, kind: StatusKind): void {

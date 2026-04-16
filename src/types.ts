@@ -18,6 +18,7 @@ export interface ScanResult {
     items: SmartObjectSummary[];
     occurrenceCount: number;
     documentCount: number;
+    activeDocumentId: number | null;
 }
 
 export interface RelinkResult {

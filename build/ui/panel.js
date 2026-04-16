@@ -7,15 +7,10 @@ const elements = {};
 const state = {
     busy: false,
     scanned: false,
-    pendingRefresh: false,
-    hostRefreshTimer: null,
     items: [],
     occurrenceCount: 0,
     documentCount: 0
 };
-window.addEventListener("beforeunload", () => {
-    void (0, photoshop_1.unregisterHostNotifications)();
-});
 document.addEventListener("DOMContentLoaded", () => {
     void boot();
 });
@@ -23,15 +18,6 @@ async function boot() {
     cacheElements();
     bindEvents();
     render();
-    try {
-        await (0, photoshop_1.registerHostNotifications)(() => {
-            onHostChange();
-        });
-    }
-    catch (error) {
-        setStatus("Host notifications unavailable: " + simplifyError(error), "warning");
-        return;
-    }
     setStatus("Panel ready. Load smart objects to inspect the current document.", "info");
 }
 function cacheElements() {
@@ -58,7 +44,6 @@ function bindEvents() {
 }
 async function loadSmartObjects(isReload) {
     if (state.busy) {
-        state.pendingRefresh = true;
         return;
     }
     setBusy(true);
@@ -120,18 +105,6 @@ async function updateSmartObjects() {
     finally {
         setBusy(false);
     }
-}
-function onHostChange() {
-    if (!state.scanned) {
-        return;
-    }
-    if (state.hostRefreshTimer !== null) {
-        window.clearTimeout(state.hostRefreshTimer);
-    }
-    state.hostRefreshTimer = window.setTimeout(() => {
-        state.hostRefreshTimer = null;
-        void loadSmartObjects(true);
-    }, 250);
 }
 function applyScanResult(result) {
     state.items = result.items;
@@ -212,10 +185,6 @@ function updateButtons() {
 function setBusy(nextBusy) {
     state.busy = nextBusy;
     updateButtons();
-    if (!nextBusy && state.pendingRefresh) {
-        state.pendingRefresh = false;
-        void loadSmartObjects(true);
-    }
 }
 function setStatus(message, kind) {
     elements.statusMessage.className = "status status-" + kind;

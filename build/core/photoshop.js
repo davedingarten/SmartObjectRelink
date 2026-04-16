@@ -4,6 +4,7 @@ exports.registerHostNotifications = registerHostNotifications;
 exports.unregisterHostNotifications = unregisterHostNotifications;
 exports.scanSmartObjects = scanSmartObjects;
 exports.relinkSmartObjects = relinkSmartObjects;
+exports.getActiveDocumentId = getActiveDocumentId;
 const project_path_1 = require("./project-path");
 const { action, app, core } = require("photoshop");
 const { storage } = require("uxp");
@@ -12,11 +13,11 @@ let hostNotificationSuppressionDepth = 0;
 let hostNotificationSuppressionUntil = 0;
 async function registerHostNotifications(callback) {
     await unregisterHostNotifications();
-    const listener = function (_eventName, _descriptor) {
+    const listener = function (eventName, _descriptor) {
         if (shouldIgnoreHostNotification()) {
             return;
         }
-        callback();
+        callback(eventName);
     };
     await action.addNotificationListener(["select", "open", "close"], listener);
     notificationListener = listener;
@@ -40,7 +41,8 @@ async function scanSmartObjects() {
         return {
             items: [],
             occurrenceCount: 0,
-            documentCount: 0
+            documentCount: 0,
+            activeDocumentId: null
         };
     }
     const occurrences = [];
@@ -74,7 +76,8 @@ async function scanSmartObjects() {
     return {
         items: summarizeOccurrences(occurrences),
         occurrenceCount: occurrences.length,
-        documentCount: 1
+        documentCount: 1,
+        activeDocumentId: getDocumentId(documentRef)
     };
 }
 async function relinkSmartObjects(fileEntries) {
@@ -143,6 +146,9 @@ function getActiveDocument() {
     catch (_error) {
         return null;
     }
+}
+function getActiveDocumentId() {
+    return getDocumentId(getActiveDocument());
 }
 function shouldIgnoreHostNotification() {
     return hostNotificationSuppressionDepth > 0 || Date.now() < hostNotificationSuppressionUntil;
@@ -215,6 +221,19 @@ function getLayerId(layer) {
         return null;
     }
     const candidate = layer;
+    if (typeof candidate.id === "number") {
+        return candidate.id;
+    }
+    if (typeof candidate._id === "number") {
+        return candidate._id;
+    }
+    return null;
+}
+function getDocumentId(documentRef) {
+    if (!documentRef || typeof documentRef !== "object") {
+        return null;
+    }
+    const candidate = documentRef;
     if (typeof candidate.id === "number") {
         return candidate.id;
     }

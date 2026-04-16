@@ -21,15 +21,15 @@ let notificationListener: NotificationCallback | null = null;
 let hostNotificationSuppressionDepth = 0;
 let hostNotificationSuppressionUntil = 0;
 
-export async function registerHostNotifications(callback: () => void): Promise<void> {
+export async function registerHostNotifications(callback: (eventName: string) => void): Promise<void> {
     await unregisterHostNotifications();
 
-    const listener: NotificationCallback = function (_eventName: string, _descriptor: unknown): void {
+    const listener: NotificationCallback = function (eventName: string, _descriptor: unknown): void {
         if (shouldIgnoreHostNotification()) {
             return;
         }
 
-        callback();
+        callback(eventName);
     };
 
     await action.addNotificationListener(["select", "open", "close"], listener);
@@ -55,7 +55,8 @@ export async function scanSmartObjects(): Promise<ScanResult> {
         return {
             items: [],
             occurrenceCount: 0,
-            documentCount: 0
+            documentCount: 0,
+            activeDocumentId: null
         };
     }
 
@@ -95,7 +96,8 @@ export async function scanSmartObjects(): Promise<ScanResult> {
     return {
         items: summarizeOccurrences(occurrences),
         occurrenceCount: occurrences.length,
-        documentCount: 1
+        documentCount: 1,
+        activeDocumentId: getDocumentId(documentRef)
     };
 }
 
@@ -175,6 +177,10 @@ function getActiveDocument(): unknown | null {
     } catch (_error) {
         return null;
     }
+}
+
+export function getActiveDocumentId(): number | null {
+    return getDocumentId(getActiveDocument());
 }
 
 function shouldIgnoreHostNotification(): boolean {
@@ -264,6 +270,23 @@ function getLayerId(layer: unknown): number | null {
     }
 
     const candidate = layer as { id?: unknown; _id?: unknown };
+    if (typeof candidate.id === "number") {
+        return candidate.id;
+    }
+
+    if (typeof candidate._id === "number") {
+        return candidate._id;
+    }
+
+    return null;
+}
+
+function getDocumentId(documentRef: unknown): number | null {
+    if (!documentRef || typeof documentRef !== "object") {
+        return null;
+    }
+
+    const candidate = documentRef as { id?: unknown; _id?: unknown };
     if (typeof candidate.id === "number") {
         return candidate.id;
     }
