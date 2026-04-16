@@ -147,6 +147,10 @@ async function updateSmartObjects(): Promise<void> {
             allowMultiple: true
         });
     } catch (error) {
+        if (isUserCancelError(error)) {
+            return;
+        }
+
         setStatus("File picker failed: " + simplifyError(error), "error");
         return;
     }
@@ -168,11 +172,15 @@ async function updateSmartObjects(): Promise<void> {
         applyScanResult(scanResult);
         state.scanned = true;
         render();
-        setStatus(
-            "Relinked " + String(relinkResult.relinkedLayerCount) + " Smart Object layer" + (relinkResult.relinkedLayerCount === 1 ? "" : "s") +
-            " using " + String(relinkResult.matchedFileCount) + " selected file" + (relinkResult.matchedFileCount === 1 ? "" : "s") + ".",
-            relinkResult.relinkedLayerCount > 0 ? "success" : "warning"
-        );
+        if (relinkResult.matchedFileCount === 0) {
+            setStatus("No selected files matched any linked Smart Object filenames.", "warning");
+        } else {
+            setStatus(
+                "Relinked " + String(relinkResult.relinkedLayerCount) + " Smart Object layer" + (relinkResult.relinkedLayerCount === 1 ? "" : "s") +
+                " using " + String(relinkResult.matchedFileCount) + " matched file" + (relinkResult.matchedFileCount === 1 ? "" : "s") + ".",
+                relinkResult.relinkedLayerCount > 0 ? "success" : "warning"
+            );
+        }
     } catch (error) {
         setStatus("Failed to relink Smart Objects: " + simplifyError(error), "error");
     } finally {
@@ -200,6 +208,10 @@ async function chooseProjectRoot(): Promise<void> {
             await loadSmartObjects(true);
         }
     } catch (error) {
+        if (isUserCancelError(error)) {
+            return;
+        }
+
         setStatus("Failed to choose project folder: " + simplifyError(error), "error");
     }
 }
@@ -446,6 +458,22 @@ function simplifyError(error: unknown): string {
     }
 
     return "Unknown error";
+}
+
+function isUserCancelError(error: unknown): boolean {
+    if (!error) {
+        return false;
+    }
+
+    if (typeof error === "object" && error !== null && "number" in error) {
+        const candidate = error as { number?: unknown };
+        if (candidate.number === 9) {
+            return true;
+        }
+    }
+
+    const message = simplifyError(error).toLowerCase();
+    return message.indexOf("cancel") >= 0 || message.indexOf("abort") >= 0;
 }
 
 function requireElement<T extends HTMLElement>(id: string): T {

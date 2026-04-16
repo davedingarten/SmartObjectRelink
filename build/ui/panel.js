@@ -102,6 +102,9 @@ async function updateSmartObjects() {
         });
     }
     catch (error) {
+        if (isUserCancelError(error)) {
+            return;
+        }
         setStatus("File picker failed: " + simplifyError(error), "error");
         return;
     }
@@ -119,8 +122,13 @@ async function updateSmartObjects() {
         applyScanResult(scanResult);
         state.scanned = true;
         render();
-        setStatus("Relinked " + String(relinkResult.relinkedLayerCount) + " Smart Object layer" + (relinkResult.relinkedLayerCount === 1 ? "" : "s") +
-            " using " + String(relinkResult.matchedFileCount) + " selected file" + (relinkResult.matchedFileCount === 1 ? "" : "s") + ".", relinkResult.relinkedLayerCount > 0 ? "success" : "warning");
+        if (relinkResult.matchedFileCount === 0) {
+            setStatus("No selected files matched any linked Smart Object filenames.", "warning");
+        }
+        else {
+            setStatus("Relinked " + String(relinkResult.relinkedLayerCount) + " Smart Object layer" + (relinkResult.relinkedLayerCount === 1 ? "" : "s") +
+                " using " + String(relinkResult.matchedFileCount) + " matched file" + (relinkResult.matchedFileCount === 1 ? "" : "s") + ".", relinkResult.relinkedLayerCount > 0 ? "success" : "warning");
+        }
     }
     catch (error) {
         setStatus("Failed to relink Smart Objects: " + simplifyError(error), "error");
@@ -147,6 +155,9 @@ async function chooseProjectRoot() {
         }
     }
     catch (error) {
+        if (isUserCancelError(error)) {
+            return;
+        }
         setStatus("Failed to choose project folder: " + simplifyError(error), "error");
     }
 }
@@ -342,6 +353,19 @@ function simplifyError(error) {
         return error;
     }
     return "Unknown error";
+}
+function isUserCancelError(error) {
+    if (!error) {
+        return false;
+    }
+    if (typeof error === "object" && error !== null && "number" in error) {
+        const candidate = error;
+        if (candidate.number === 9) {
+            return true;
+        }
+    }
+    const message = simplifyError(error).toLowerCase();
+    return message.indexOf("cancel") >= 0 || message.indexOf("abort") >= 0;
 }
 function requireElement(id) {
     const element = document.getElementById(id);
