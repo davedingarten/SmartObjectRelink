@@ -20,6 +20,14 @@ This repository contains a standalone Adobe Photoshop UXP plugin for scanning an
 - `src/types.ts`: shared types for scan summaries and relink results.
 - `build/`: compiled JavaScript output that Photoshop actually runs.
 
+## Reference Source
+
+- Original Alpha Flow Smart Objects panel reference:
+  `/Users/davedingarten/Documents/Personal/repositories/alphaflow/Source/Photoshop Plugin UXP-R/src/plugins/SmartObjects/Panel.tsx`
+- Visual header/style reference for this standalone plugin:
+  `/Users/davedingarten/SideHustles/LayerRenamer/index.html`
+  `/Users/davedingarten/SideHustles/LayerRenamer/style.css`
+
 ## Working Rules
 
 - Treat `src/` as the source of truth. Do not hand-edit `build/` unless you are debugging an emergency runtime issue.
@@ -33,14 +41,10 @@ This repository contains a standalone Adobe Photoshop UXP plugin for scanning an
 
 ## Current Behavior
 
-- Scan all open documents for linked Smart Object layers.
+- Scan the current active Photoshop document for linked Smart Object layers.
 - Recursively traverse groups and collect only linked Smart Objects, not embedded ones.
 - Group results by `fileReference` / filename.
-- Show status for:
-- Missing links.
-- Assets outside the current project root.
-- Multiple open documents using the same linked filename.
-- Allow a manual project root folder override.
+- Show a simple linked-file list with missing-link status.
 - Allow relinking by choosing replacement files and matching them by exact filename.
 - Auto-refresh on Photoshop `select`, `open`, and `close` notifications after the user has already run one scan.
 
@@ -50,10 +54,6 @@ This repository contains a standalone Adobe Photoshop UXP plugin for scanning an
 - `manifestVersion: 6` is being used because it matches the local `LayerRenamer` setup, but Adobe’s public Photoshop docs still prominently document manifest v5. If Photoshop rejects this manifest, verify with the UXP Developer Tool and downgrade only if needed.
 - The manifest icon paths currently point to `icons/panelIcon.png` and `icons/pluginIcon.png`, while the copied placeholder icon assets are `panelIcon@1x.png`, `panelIcon@2x.png`, `pluginIcon@1x.png`, and `pluginIcon@2x.png`. This likely needs to be reconciled before loading or packaging.
 - Cloud documents and unusual document path shapes have not been explicitly handled beyond safe null-path behavior.
-- The “outside project root” check currently compares linked asset paths against either:
-- A manually chosen folder.
-- The active document’s parent folder.
-- If project roots should be inferred differently, change that in `src/core/project-path.ts` and the scan entrypoint logic.
 - The current relink flow assumes `placedLayerRelinkToFile` remains the right batchPlay command for linked Smart Object relinking in the target Photoshop version.
 
 ## Verification

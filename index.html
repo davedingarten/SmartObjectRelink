@@ -6,18 +6,20 @@
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-<div id="app">
+<div id="content">
   <div class="header">
-    <div class="header-copy">
-      <div class="eyebrow">D2STUDIO UTILITY</div>
-      <h1 class="title">Smart Objects Relink</h1>
-      <p class="subtitle">Load linked Smart Objects, review the filename list, and update them by exact filename.</p>
+    <div class="header-brand">
+      <span class="brand-group">
+        <span class="logo">D2</span>
+        <span class="brand-accent">STUDIO</span>
+      </span>
+      <span class="header-title">SMART OBJECTS RELINK</span>
     </div>
   </div>
 
   <div id="loadCard" class="card">
     <div class="section-title">Update Smart Objects</div>
-    <p class="section-copy">Load the linked Smart Objects from the current Photoshop document before updating them.</p>
+    <p class="section-note">Load the linked Smart Objects from the current Photoshop document before updating them.</p>
     <div class="button-row">
       <button id="btnLoad" class="button button-primary" type="button">Load Smart Objects</button>
     </div>
@@ -27,7 +29,7 @@
 
   <div id="listCard" class="card list-card">
     <div class="section-title">Linked Smart Objects</div>
-    <p class="section-copy">Review the linked filenames below, then select matching files to update them.</p>
+    <p class="section-note">Review the linked filenames below, then select matching files to update them.</p>
     <div class="legend">
       <span class="legend-item"><span class="pill pill-danger">Missing</span> Broken link</span>
       <span class="legend-item"><span class="pill pill-success">Linked</span> Linked file found</span>
