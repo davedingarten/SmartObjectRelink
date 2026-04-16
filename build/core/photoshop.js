@@ -34,78 +34,52 @@ async function unregisterHostNotifications() {
         notificationListener = null;
     }
 }
-async function scanSmartObjects(options) {
-    const documents = getOpenDocuments();
-    const activeDocumentFolder = getActiveDocumentFolder();
-    const projectRootPath = (0, project_path_1.normalizePath)(options.projectRootPath || activeDocumentFolder);
-    if (documents.length === 0) {
+async function scanSmartObjects() {
+    const documentRef = getActiveDocument();
+    if (!documentRef) {
         return {
             items: [],
             occurrenceCount: 0,
-            documentCount: 0,
-            projectRootPath,
-            activeDocumentFolder
+            documentCount: 0
         };
     }
     const occurrences = [];
-    const originalDocument = getActiveDocument();
-    await runWithSuppressedHostNotifications(async () => {
-        await core.executeAsModal(async () => {
-            try {
-                for (let index = 0; index < documents.length; index += 1) {
-                    const documentRef = documents[index];
-                    if (!documentRef) {
-                        continue;
-                    }
-                    app.activeDocument = documentRef;
-                    const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
-                    for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
-                        const layer = smartObjectLayers[layerIndex];
-                        const layerId = getLayerId(layer);
-                        if (!layerId) {
-                            continue;
-                        }
-                        const descriptor = await getLayerDescriptor(layerId);
-                        const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
-                        if (!linked) {
-                            continue;
-                        }
-                        const linkedPath = (0, project_path_1.extractNativePath)(descriptor.smartObject && descriptor.smartObject.link);
-                        const fileReference = extractFileReference(descriptor);
-                        if (!fileReference) {
-                            continue;
-                        }
-                        const occurrence = {
-                            documentId: Number(documentRef.id || 0),
-                            documentName: safeDocumentName(documentRef, index),
-                            documentPath: getDocumentPath(documentRef),
-                            layerId,
-                            layerName: String(descriptor.name || layer.name || fileReference),
-                            fileReference,
-                            linkedPath,
-                            missing: Boolean(descriptor.smartObject && descriptor.smartObject.linkMissing),
-                            outsideProjectRoot: linkedPath ? !(0, project_path_1.isPathInsideRoot)(linkedPath, projectRootPath) : false
-                        };
-                        occurrences.push(occurrence);
-                    }
-                }
+    await core.executeAsModal(async () => {
+        const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
+        for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
+            const layer = smartObjectLayers[layerIndex];
+            const layerId = getLayerId(layer);
+            if (!layerId) {
+                continue;
             }
-            finally {
-                restoreActiveDocument(originalDocument);
+            const descriptor = await getLayerDescriptor(layerId);
+            const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
+            if (!linked) {
+                continue;
             }
-        }, { commandName: "Scan Smart Objects" });
-    });
+            const linkedPath = (0, project_path_1.extractNativePath)(descriptor.smartObject && descriptor.smartObject.link);
+            const fileReference = extractFileReference(descriptor);
+            if (!fileReference) {
+                continue;
+            }
+            occurrences.push({
+                layerId,
+                layerName: String(descriptor.name || layer.name || fileReference),
+                fileReference,
+                linkedPath,
+                missing: Boolean(descriptor.smartObject && descriptor.smartObject.linkMissing)
+            });
+        }
+    }, { commandName: "Scan Smart Objects" });
     return {
         items: summarizeOccurrences(occurrences),
         occurrenceCount: occurrences.length,
-        documentCount: documents.length,
-        projectRootPath,
-        activeDocumentFolder
+        documentCount: 1
     };
 }
 async function relinkSmartObjects(fileEntries) {
-    const documents = getOpenDocuments();
-    if (documents.length === 0) {
+    const documentRef = getActiveDocument();
+    if (!documentRef) {
         return {
             matchedFileCount: 0,
             relinkedLayerCount: 0
@@ -126,47 +100,34 @@ async function relinkSmartObjects(fileEntries) {
             relinkedLayerCount: 0
         };
     }
-    const originalDocument = getActiveDocument();
     let relinkedLayerCount = 0;
     const matchedFileNames = new Set();
     await runWithSuppressedHostNotifications(async () => {
         await core.executeAsModal(async () => {
-            try {
-                for (let index = 0; index < documents.length; index += 1) {
-                    const documentRef = documents[index];
-                    if (!documentRef) {
-                        continue;
-                    }
-                    app.activeDocument = documentRef;
-                    const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
-                    for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
-                        const layer = smartObjectLayers[layerIndex];
-                        const layerId = getLayerId(layer);
-                        if (!layerId) {
-                            continue;
-                        }
-                        const descriptor = await getLayerDescriptor(layerId);
-                        const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
-                        if (!linked) {
-                            continue;
-                        }
-                        const fileReference = extractFileReference(descriptor);
-                        if (!fileReference) {
-                            continue;
-                        }
-                        const selectedFile = byName.get(fileReference);
-                        if (!selectedFile) {
-                            continue;
-                        }
-                        matchedFileNames.add(fileReference);
-                        await action.batchPlay([selectLayer(layerId)], { modalBehavior: "execute" });
-                        await action.batchPlay([relinkPlacedLayer(selectedFile.token)], { modalBehavior: "execute" });
-                        relinkedLayerCount += 1;
-                    }
+            const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
+            for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
+                const layer = smartObjectLayers[layerIndex];
+                const layerId = getLayerId(layer);
+                if (!layerId) {
+                    continue;
                 }
-            }
-            finally {
-                restoreActiveDocument(originalDocument);
+                const descriptor = await getLayerDescriptor(layerId);
+                const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
+                if (!linked) {
+                    continue;
+                }
+                const fileReference = extractFileReference(descriptor);
+                if (!fileReference) {
+                    continue;
+                }
+                const selectedFile = byName.get(fileReference);
+                if (!selectedFile) {
+                    continue;
+                }
+                matchedFileNames.add(fileReference);
+                await action.batchPlay([selectLayer(layerId)], { modalBehavior: "execute" });
+                await action.batchPlay([relinkPlacedLayer(selectedFile.token)], { modalBehavior: "execute" });
+                relinkedLayerCount += 1;
             }
         }, { commandName: "Relink Smart Objects" });
     });
@@ -175,9 +136,6 @@ async function relinkSmartObjects(fileEntries) {
         relinkedLayerCount
     };
 }
-function getOpenDocuments() {
-    return toArray(app.documents);
-}
 function getActiveDocument() {
     try {
         return app.activeDocument || null;
@@ -185,31 +143,6 @@ function getActiveDocument() {
     catch (_error) {
         return null;
     }
-}
-function getActiveDocumentFolder() {
-    const activeDocument = getActiveDocument();
-    return (0, project_path_1.getDirectoryPath)(getDocumentPath(activeDocument));
-}
-function getDocumentPath(documentRef) {
-    if (!documentRef || typeof documentRef !== "object") {
-        return null;
-    }
-    try {
-        const candidate = documentRef;
-        return (0, project_path_1.extractNativePath)(candidate.path);
-    }
-    catch (_error) {
-        return null;
-    }
-}
-function safeDocumentName(documentRef, fallbackIndex) {
-    if (documentRef && typeof documentRef === "object" && "name" in documentRef) {
-        const named = documentRef;
-        if (typeof named.name === "string" && named.name.trim()) {
-            return named.name;
-        }
-    }
-    return "Document " + String(fallbackIndex + 1);
 }
 function shouldIgnoreHostNotification() {
     return hostNotificationSuppressionDepth > 0 || Date.now() < hostNotificationSuppressionUntil;
@@ -230,16 +163,6 @@ function suppressHostNotifications(graceMs = 750) {
         hostNotificationSuppressionDepth = Math.max(0, hostNotificationSuppressionDepth - 1);
         hostNotificationSuppressionUntil = Math.max(hostNotificationSuppressionUntil, Date.now() + graceMs);
     };
-}
-function restoreActiveDocument(documentRef) {
-    if (!documentRef) {
-        return;
-    }
-    try {
-        app.activeDocument = documentRef;
-    }
-    catch (_error) {
-    }
 }
 function toArray(value) {
     if (!value) {
@@ -330,31 +253,22 @@ function summarizeOccurrences(occurrences) {
                 fileReference: occurrence.fileReference,
                 totalCount: 1,
                 missingCount: occurrence.missing ? 1 : 0,
-                outsideProjectRootCount: occurrence.outsideProjectRoot ? 1 : 0,
                 linkedPaths: occurrence.linkedPath ? [occurrence.linkedPath] : [],
-                documentNames: [occurrence.documentName],
                 occurrences: [occurrence]
             });
             continue;
         }
         existing.totalCount += 1;
         existing.missingCount += occurrence.missing ? 1 : 0;
-        existing.outsideProjectRootCount += occurrence.outsideProjectRoot ? 1 : 0;
         existing.occurrences.push(occurrence);
         if (occurrence.linkedPath && existing.linkedPaths.indexOf(occurrence.linkedPath) === -1) {
             existing.linkedPaths.push(occurrence.linkedPath);
-        }
-        if (existing.documentNames.indexOf(occurrence.documentName) === -1) {
-            existing.documentNames.push(occurrence.documentName);
         }
     }
     const items = Array.from(map.values());
     items.sort((left, right) => {
         if (left.missingCount !== right.missingCount) {
             return right.missingCount - left.missingCount;
-        }
-        if (left.outsideProjectRootCount !== right.outsideProjectRootCount) {
-            return right.outsideProjectRootCount - left.outsideProjectRootCount;
         }
         return left.fileReference.localeCompare(right.fileReference);
     });

@@ -11,41 +11,35 @@
     <div class="header-copy">
       <div class="eyebrow">D2STUDIO UTILITY</div>
       <h1 class="title">Smart Objects Relink</h1>
-      <p class="subtitle">Scan linked Smart Objects across open documents, flag broken links, and relink by filename.</p>
+      <p class="subtitle">Load linked Smart Objects, review the filename list, and update them by exact filename.</p>
     </div>
   </div>
 
-  <div class="card">
-    <div class="section-title">Project Root</div>
-    <div class="meta-row">
-      <span id="projectRootMode" class="pill pill-info">Auto</span>
-      <span id="projectRootPath" class="path-value">Using active document folder</span>
-    </div>
-    <div class="button-row">
-      <button id="btnPickProjectRoot" class="button button-secondary" type="button">Pick Folder</button>
-      <button id="btnUseAutoRoot" class="button button-ghost" type="button">Use Active Doc Folder</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="section-title">Actions</div>
+  <div id="loadCard" class="card">
+    <div class="section-title">Update Smart Objects</div>
+    <p class="section-copy">Load the linked Smart Objects from the current Photoshop document before updating them.</p>
     <div class="button-row">
       <button id="btnLoad" class="button button-primary" type="button">Load Smart Objects</button>
-      <button id="btnReload" class="button button-secondary" type="button">Reload</button>
-      <button id="btnUpdate" class="button button-secondary" type="button">Update Smart Objects</button>
     </div>
   </div>
 
-  <div id="statusMessage" class="status status-info">Panel ready. Load smart objects to inspect linked assets.</div>
+  <div id="statusMessage" class="status status-info">Panel ready. Load smart objects to inspect the current document.</div>
 
-  <div id="statsGrid" class="stats-grid"></div>
-
-  <div class="card list-card">
+  <div id="listCard" class="card list-card">
     <div class="section-title">Linked Smart Objects</div>
+    <p class="section-copy">Review the linked filenames below, then select matching files to update them.</p>
+    <div class="legend">
+      <span class="legend-item"><span class="pill pill-danger">Missing</span> Broken link</span>
+      <span class="legend-item"><span class="pill pill-success">Linked</span> Linked file found</span>
+    </div>
     <div id="emptyState" class="empty-state">
-      Load smart objects to scan all currently open Photoshop documents.
+      Load smart objects to inspect the current Photoshop document.
     </div>
     <div id="smartObjectList" class="item-list"></div>
+    <div class="button-row list-actions">
+      <button id="btnReload" class="button button-secondary" type="button">Reload Smart Objects</button>
+      <button id="btnUpdate" class="button button-primary" type="button">Update Smart Objects</button>
+    </div>
   </div>
 
   <div class="footer-meta">

@@ -1,5 +1,5 @@
-import { extractNativePath, getBasename, getDirectoryPath, isPathInsideRoot, normalizePath } from "./project-path";
-import type { RelinkResult, ScanOptions, ScanResult, SmartObjectOccurrence, SmartObjectSummary } from "../types";
+import { extractNativePath, getBasename } from "./project-path";
+import type { RelinkResult, ScanResult, SmartObjectOccurrence, SmartObjectSummary } from "../types";
 
 const { action, app, core } = require("photoshop");
 const { storage } = require("uxp");
@@ -49,88 +49,59 @@ export async function unregisterHostNotifications(): Promise<void> {
     }
 }
 
-export async function scanSmartObjects(options: ScanOptions): Promise<ScanResult> {
-    const documents = getOpenDocuments();
-    const activeDocumentFolder = getActiveDocumentFolder();
-    const projectRootPath = normalizePath(options.projectRootPath || activeDocumentFolder);
-
-    if (documents.length === 0) {
+export async function scanSmartObjects(): Promise<ScanResult> {
+    const documentRef = getActiveDocument() as any;
+    if (!documentRef) {
         return {
             items: [],
             occurrenceCount: 0,
-            documentCount: 0,
-            projectRootPath,
-            activeDocumentFolder
+            documentCount: 0
         };
     }
 
     const occurrences: SmartObjectOccurrence[] = [];
-    const originalDocument = getActiveDocument();
 
-    await runWithSuppressedHostNotifications(async () => {
-        await core.executeAsModal(async () => {
-            try {
-                for (let index = 0; index < documents.length; index += 1) {
-                    const documentRef = documents[index] as any;
-                    if (!documentRef) {
-                        continue;
-                    }
-
-                    app.activeDocument = documentRef;
-
-                    const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
-                    for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
-                        const layer = smartObjectLayers[layerIndex] as any;
-                        const layerId = getLayerId(layer);
-                        if (!layerId) {
-                            continue;
-                        }
-
-                        const descriptor = await getLayerDescriptor(layerId);
-                        const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
-                        if (!linked) {
-                            continue;
-                        }
-
-                        const linkedPath = extractNativePath(descriptor.smartObject && descriptor.smartObject.link);
-                        const fileReference = extractFileReference(descriptor);
-                        if (!fileReference) {
-                            continue;
-                        }
-
-                        const occurrence: SmartObjectOccurrence = {
-                            documentId: Number(documentRef.id || 0),
-                            documentName: safeDocumentName(documentRef, index),
-                            documentPath: getDocumentPath(documentRef),
-                            layerId,
-                            layerName: String(descriptor.name || layer.name || fileReference),
-                            fileReference,
-                            linkedPath,
-                            missing: Boolean(descriptor.smartObject && descriptor.smartObject.linkMissing),
-                            outsideProjectRoot: linkedPath ? !isPathInsideRoot(linkedPath, projectRootPath) : false
-                        };
-
-                        occurrences.push(occurrence);
-                    }
-                }
-            } finally {
-                restoreActiveDocument(originalDocument);
+    await core.executeAsModal(async () => {
+        const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
+        for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
+            const layer = smartObjectLayers[layerIndex] as any;
+            const layerId = getLayerId(layer);
+            if (!layerId) {
+                continue;
             }
-        }, { commandName: "Scan Smart Objects" });
-    });
+
+            const descriptor = await getLayerDescriptor(layerId);
+            const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
+            if (!linked) {
+                continue;
+            }
+
+            const linkedPath = extractNativePath(descriptor.smartObject && descriptor.smartObject.link);
+            const fileReference = extractFileReference(descriptor);
+            if (!fileReference) {
+                continue;
+            }
+
+            occurrences.push({
+                layerId,
+                layerName: String(descriptor.name || layer.name || fileReference),
+                fileReference,
+                linkedPath,
+                missing: Boolean(descriptor.smartObject && descriptor.smartObject.linkMissing)
+            });
+        }
+    }, { commandName: "Scan Smart Objects" });
 
     return {
         items: summarizeOccurrences(occurrences),
         occurrenceCount: occurrences.length,
-        documentCount: documents.length,
-        projectRootPath,
-        activeDocumentFolder
+        documentCount: 1
     };
 }
 
 export async function relinkSmartObjects(fileEntries: unknown[]): Promise<RelinkResult> {
-    const documents = getOpenDocuments();
-    if (documents.length === 0) {
+    const documentRef = getActiveDocument() as any;
+    if (!documentRef) {
         return {
             matchedFileCount: 0,
             relinkedLayerCount: 0
@@ -155,53 +126,39 @@ export async function relinkSmartObjects(fileEntries: unknown[]): Promise<Relink
         };
     }
 
-    const originalDocument = getActiveDocument();
     let relinkedLayerCount = 0;
     const matchedFileNames = new Set<string>();
 
     await runWithSuppressedHostNotifications(async () => {
         await core.executeAsModal(async () => {
-            try {
-                for (let index = 0; index < documents.length; index += 1) {
-                    const documentRef = documents[index] as any;
-                    if (!documentRef) {
-                        continue;
-                    }
-
-                    app.activeDocument = documentRef;
-
-                    const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
-                    for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
-                        const layer = smartObjectLayers[layerIndex] as any;
-                        const layerId = getLayerId(layer);
-                        if (!layerId) {
-                            continue;
-                        }
-
-                        const descriptor = await getLayerDescriptor(layerId);
-                        const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
-                        if (!linked) {
-                            continue;
-                        }
-
-                        const fileReference = extractFileReference(descriptor);
-                        if (!fileReference) {
-                            continue;
-                        }
-
-                        const selectedFile = byName.get(fileReference);
-                        if (!selectedFile) {
-                            continue;
-                        }
-
-                        matchedFileNames.add(fileReference);
-                        await action.batchPlay([selectLayer(layerId)], { modalBehavior: "execute" });
-                        await action.batchPlay([relinkPlacedLayer(selectedFile.token)], { modalBehavior: "execute" });
-                        relinkedLayerCount += 1;
-                    }
+            const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
+            for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
+                const layer = smartObjectLayers[layerIndex] as any;
+                const layerId = getLayerId(layer);
+                if (!layerId) {
+                    continue;
                 }
-            } finally {
-                restoreActiveDocument(originalDocument);
+
+                const descriptor = await getLayerDescriptor(layerId);
+                const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
+                if (!linked) {
+                    continue;
+                }
+
+                const fileReference = extractFileReference(descriptor);
+                if (!fileReference) {
+                    continue;
+                }
+
+                const selectedFile = byName.get(fileReference);
+                if (!selectedFile) {
+                    continue;
+                }
+
+                matchedFileNames.add(fileReference);
+                await action.batchPlay([selectLayer(layerId)], { modalBehavior: "execute" });
+                await action.batchPlay([relinkPlacedLayer(selectedFile.token)], { modalBehavior: "execute" });
+                relinkedLayerCount += 1;
             }
         }, { commandName: "Relink Smart Objects" });
     });
@@ -212,45 +169,12 @@ export async function relinkSmartObjects(fileEntries: unknown[]): Promise<Relink
     };
 }
 
-function getOpenDocuments(): unknown[] {
-    return toArray(app.documents);
-}
-
 function getActiveDocument(): unknown | null {
     try {
         return app.activeDocument || null;
     } catch (_error) {
         return null;
     }
-}
-
-function getActiveDocumentFolder(): string | null {
-    const activeDocument = getActiveDocument();
-    return getDirectoryPath(getDocumentPath(activeDocument));
-}
-
-function getDocumentPath(documentRef: unknown): string | null {
-    if (!documentRef || typeof documentRef !== "object") {
-        return null;
-    }
-
-    try {
-        const candidate = documentRef as { path?: unknown };
-        return extractNativePath(candidate.path);
-    } catch (_error) {
-        return null;
-    }
-}
-
-function safeDocumentName(documentRef: unknown, fallbackIndex: number): string {
-    if (documentRef && typeof documentRef === "object" && "name" in documentRef) {
-        const named = documentRef as { name?: unknown };
-        if (typeof named.name === "string" && named.name.trim()) {
-            return named.name;
-        }
-    }
-
-    return "Document " + String(fallbackIndex + 1);
 }
 
 function shouldIgnoreHostNotification(): boolean {
@@ -275,17 +199,6 @@ function suppressHostNotifications(graceMs: number = 750): () => void {
         hostNotificationSuppressionDepth = Math.max(0, hostNotificationSuppressionDepth - 1);
         hostNotificationSuppressionUntil = Math.max(hostNotificationSuppressionUntil, Date.now() + graceMs);
     };
-}
-
-function restoreActiveDocument(documentRef: unknown | null): void {
-    if (!documentRef) {
-        return;
-    }
-
-    try {
-        app.activeDocument = documentRef;
-    } catch (_error) {
-    }
 }
 
 function toArray<T>(value: { length?: number; forEach?: (callback: (item: T, index: number) => void) => void; [index: number]: T } | T[] | null | undefined): T[] {
@@ -398,9 +311,7 @@ function summarizeOccurrences(occurrences: SmartObjectOccurrence[]): SmartObject
                 fileReference: occurrence.fileReference,
                 totalCount: 1,
                 missingCount: occurrence.missing ? 1 : 0,
-                outsideProjectRootCount: occurrence.outsideProjectRoot ? 1 : 0,
                 linkedPaths: occurrence.linkedPath ? [occurrence.linkedPath] : [],
-                documentNames: [occurrence.documentName],
                 occurrences: [occurrence]
             });
             continue;
@@ -408,15 +319,10 @@ function summarizeOccurrences(occurrences: SmartObjectOccurrence[]): SmartObject
 
         existing.totalCount += 1;
         existing.missingCount += occurrence.missing ? 1 : 0;
-        existing.outsideProjectRootCount += occurrence.outsideProjectRoot ? 1 : 0;
         existing.occurrences.push(occurrence);
 
         if (occurrence.linkedPath && existing.linkedPaths.indexOf(occurrence.linkedPath) === -1) {
             existing.linkedPaths.push(occurrence.linkedPath);
-        }
-
-        if (existing.documentNames.indexOf(occurrence.documentName) === -1) {
-            existing.documentNames.push(occurrence.documentName);
         }
     }
 
@@ -424,10 +330,6 @@ function summarizeOccurrences(occurrences: SmartObjectOccurrence[]): SmartObject
     items.sort((left, right) => {
         if (left.missingCount !== right.missingCount) {
             return right.missingCount - left.missingCount;
-        }
-
-        if (left.outsideProjectRootCount !== right.outsideProjectRootCount) {
-            return right.outsideProjectRootCount - left.outsideProjectRootCount;
         }
 
         return left.fileReference.localeCompare(right.fileReference);

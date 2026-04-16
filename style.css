@@ -78,6 +78,11 @@ body {
     letter-spacing: 0.8px;
 }
 
+.section-copy {
+    margin: 0;
+    color: var(--muted);
+}
+
 .meta-row,
 .button-row,
 .stats-grid,
@@ -229,8 +234,30 @@ body {
     padding-bottom: 6px;
 }
 
+#listCard {
+    display: none;
+}
+
 .empty-state {
     color: var(--muted);
+}
+
+.legend {
+    margin-top: 10px;
+    color: var(--muted);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+
+.legend-item + .legend-item {
+    margin-top: 8px;
+}
+
+.legend-item .pill {
+    margin-right: 8px;
 }
 
 .item-list {
@@ -273,6 +300,12 @@ body {
 
 .item-badges span {
     margin-bottom: 6px;
+}
+
+.list-actions {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
 }
 
 .footer-meta {
