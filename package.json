@@ -1,0 +1,16 @@
+{
+  "name": "smart-objects-relink",
+  "version": "0.1.0",
+  "description": "Standalone Photoshop UXP panel for auditing and relinking linked Smart Objects.",
+  "private": true,
+  "author": "D2Studio",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

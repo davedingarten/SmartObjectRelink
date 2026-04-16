@@ -1,0 +1,56 @@
+{
+  "manifestVersion": 6,
+  "id": "smart-objects-relink-panel",
+  "name": "Smart Objects Relink",
+  "version": "0.1.0",
+  "host": {
+    "app": "PS",
+    "minVersion": "25.0.0"
+  },
+  "requiredPermissions": {
+    "localFileSystem": "request"
+  },
+  "icons": [
+    {
+      "width": 23,
+      "height": 23,
+      "path": "icons/pluginIcon.png",
+      "scale": [1, 2],
+      "theme": ["all"],
+      "species": ["pluginList"]
+    }
+  ],
+  "main": "index.html",
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "smart-objects-relink-panel",
+      "label": "Smart Objects Relink",
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/panelIcon.png",
+          "scale": [1, 2],
+          "theme": ["all"]
+        }
+      ],
+      "minimumSize": {
+        "width": 340,
+        "height": 520
+      },
+      "maximumSize": {
+        "width": 2200,
+        "height": 2200
+      },
+      "preferredDockedSize": {
+        "width": 380,
+        "height": 820
+      },
+      "preferredFloatingSize": {
+        "width": 420,
+        "height": 900
+      }
+    }
+  ]
+}

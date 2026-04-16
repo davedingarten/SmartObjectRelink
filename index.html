@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Smart Objects Relink</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-copy">
+      <div class="eyebrow">D2STUDIO UTILITY</div>
+      <h1 class="title">Smart Objects Relink</h1>
+      <p class="subtitle">Scan linked Smart Objects across open documents, flag broken links, and relink by filename.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Project Root</div>
+    <div class="meta-row">
+      <span id="projectRootMode" class="pill pill-info">Auto</span>
+      <span id="projectRootPath" class="path-value">Using active document folder</span>
+    </div>
+    <div class="button-row">
+      <button id="btnPickProjectRoot" class="button button-secondary" type="button">Pick Folder</button>
+      <button id="btnUseAutoRoot" class="button button-ghost" type="button">Use Active Doc Folder</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Actions</div>
+    <div class="button-row">
+      <button id="btnLoad" class="button button-primary" type="button">Load Smart Objects</button>
+      <button id="btnReload" class="button button-secondary" type="button">Reload</button>
+      <button id="btnUpdate" class="button button-secondary" type="button">Update Smart Objects</button>
+    </div>
+  </div>
+
+  <div id="statusMessage" class="status status-info">Panel ready. Load smart objects to inspect linked assets.</div>
+
+  <div id="statsGrid" class="stats-grid"></div>
+
+  <div class="card list-card">
+    <div class="section-title">Linked Smart Objects</div>
+    <div id="emptyState" class="empty-state">
+      Load smart objects to scan all currently open Photoshop documents.
+    </div>
+    <div id="smartObjectList" class="item-list"></div>
+  </div>
+
+  <div class="footer-meta">
+    <span id="footerMeta">v0.1.0</span>
+  </div>
+</div>
+
+<script src="panel-loader.js"></script>
+</body>
+</html>
