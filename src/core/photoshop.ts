@@ -72,6 +72,10 @@ export async function scanSmartObjects(options: ScanOptions): Promise<ScanResult
             try {
                 for (let index = 0; index < documents.length; index += 1) {
                     const documentRef = documents[index] as any;
+                    if (!documentRef) {
+                        continue;
+                    }
+
                     app.activeDocument = documentRef;
 
                     const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
@@ -160,6 +164,10 @@ export async function relinkSmartObjects(fileEntries: unknown[]): Promise<Relink
             try {
                 for (let index = 0; index < documents.length; index += 1) {
                     const documentRef = documents[index] as any;
+                    if (!documentRef) {
+                        continue;
+                    }
+
                     app.activeDocument = documentRef;
 
                     const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
@@ -280,12 +288,40 @@ function restoreActiveDocument(documentRef: unknown | null): void {
     }
 }
 
-function toArray<T>(value: { length?: number; [index: number]: T } | T[] | null | undefined): T[] {
+function toArray<T>(value: { length?: number; forEach?: (callback: (item: T, index: number) => void) => void; [index: number]: T } | T[] | null | undefined): T[] {
     if (!value) {
         return [];
     }
 
-    return Array.prototype.slice.call(value);
+    if (Array.isArray(value)) {
+        return value.slice();
+    }
+
+    const results: T[] = [];
+    const collection = value as { length?: unknown; forEach?: unknown; [index: number]: T };
+
+    if (typeof collection.forEach === "function") {
+        try {
+            collection.forEach((item: T) => {
+                if (item !== null && item !== undefined) {
+                    results.push(item);
+                }
+            });
+
+            return results;
+        } catch (_error) {
+        }
+    }
+
+    const length = typeof collection.length === "number" ? collection.length : 0;
+    for (let index = 0; index < length; index += 1) {
+        const item = collection[index];
+        if (item !== null && item !== undefined) {
+            results.push(item);
+        }
+    }
+
+    return results;
 }
 
 function collectLayersByKind(layers: unknown[], kind: string): unknown[] {
