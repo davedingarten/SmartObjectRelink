@@ -1,6 +1,6 @@
 # Smart Objects Relink
 
-Standalone Adobe Photoshop UXP panel for scanning linked Smart Objects across all open documents and relinking them by filename.
+Standalone Adobe Photoshop UXP panel for scanning linked Smart Objects in the current Photoshop document and relinking them by filename.
 
 ## Structure
 

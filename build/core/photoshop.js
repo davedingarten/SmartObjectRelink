@@ -1,48 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerHostNotifications = registerHostNotifications;
-exports.unregisterHostNotifications = unregisterHostNotifications;
 exports.scanSmartObjects = scanSmartObjects;
 exports.relinkSmartObjects = relinkSmartObjects;
-exports.getActiveDocumentId = getActiveDocumentId;
 const project_path_1 = require("./project-path");
 const { action, app, core } = require("photoshop");
 const { storage } = require("uxp");
-let notificationListener = null;
-let hostNotificationSuppressionDepth = 0;
-let hostNotificationSuppressionUntil = 0;
-async function registerHostNotifications(callback) {
-    await unregisterHostNotifications();
-    const listener = function (eventName, _descriptor) {
-        if (shouldIgnoreHostNotification()) {
-            return;
-        }
-        callback(eventName);
-    };
-    await action.addNotificationListener(["select", "open", "close"], listener);
-    notificationListener = listener;
-}
-async function unregisterHostNotifications() {
-    if (!notificationListener) {
-        return;
-    }
-    try {
-        await action.removeNotificationListener(["select", "open", "close"], notificationListener);
-    }
-    catch (_error) {
-    }
-    finally {
-        notificationListener = null;
-    }
-}
 async function scanSmartObjects() {
     const documentRef = getActiveDocument();
     if (!documentRef) {
         return {
             items: [],
             occurrenceCount: 0,
-            documentCount: 0,
-            activeDocumentId: null
+            documentCount: 0
         };
     }
     const occurrences = [];
@@ -54,30 +23,34 @@ async function scanSmartObjects() {
             if (!layerId) {
                 continue;
             }
-            const descriptor = await getLayerDescriptor(layerId);
-            const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
-            if (!linked) {
+            try {
+                const descriptor = await getLayerDescriptor(layerId);
+                const linked = Boolean(descriptor.smartObject && descriptor.smartObject.linked);
+                if (!linked) {
+                    continue;
+                }
+                const linkedPath = (0, project_path_1.extractNativePath)(descriptor.smartObject && descriptor.smartObject.link);
+                const fileReference = extractFileReference(descriptor);
+                if (!fileReference) {
+                    continue;
+                }
+                occurrences.push({
+                    layerId,
+                    layerName: String(descriptor.name || layer.name || fileReference),
+                    fileReference,
+                    linkedPath,
+                    missing: Boolean(descriptor.smartObject && descriptor.smartObject.linkMissing)
+                });
+            }
+            catch (_error) {
                 continue;
             }
-            const linkedPath = (0, project_path_1.extractNativePath)(descriptor.smartObject && descriptor.smartObject.link);
-            const fileReference = extractFileReference(descriptor);
-            if (!fileReference) {
-                continue;
-            }
-            occurrences.push({
-                layerId,
-                layerName: String(descriptor.name || layer.name || fileReference),
-                fileReference,
-                linkedPath,
-                missing: Boolean(descriptor.smartObject && descriptor.smartObject.linkMissing)
-            });
         }
     }, { commandName: "Scan Smart Objects" });
     return {
         items: summarizeOccurrences(occurrences),
         occurrenceCount: occurrences.length,
-        documentCount: 1,
-        activeDocumentId: getDocumentId(documentRef)
+        documentCount: 1
     };
 }
 async function relinkSmartObjects(fileEntries) {
@@ -94,8 +67,9 @@ async function relinkSmartObjects(fileEntries) {
         if (!entry || typeof entry.name !== "string" || !entry.name) {
             continue;
         }
-        const token = storage.localFileSystem.createSessionToken(fileEntries[index]);
-        byName.set(entry.name, { token });
+        byName.set(getFilenameKey(entry.name), {
+            token: storage.localFileSystem.createSessionToken(fileEntries[index])
+        });
     }
     if (byName.size === 0) {
         return {
@@ -105,8 +79,9 @@ async function relinkSmartObjects(fileEntries) {
     }
     let relinkedLayerCount = 0;
     const matchedFileNames = new Set();
-    await runWithSuppressedHostNotifications(async () => {
-        await core.executeAsModal(async () => {
+    const originalSelectionIds = getSelectedLayerIds(documentRef);
+    await core.executeAsModal(async () => {
+        try {
             const smartObjectLayers = collectLayersByKind(toArray(documentRef.layers), "smartObject");
             for (let layerIndex = 0; layerIndex < smartObjectLayers.length; layerIndex += 1) {
                 const layer = smartObjectLayers[layerIndex];
@@ -123,17 +98,20 @@ async function relinkSmartObjects(fileEntries) {
                 if (!fileReference) {
                     continue;
                 }
-                const selectedFile = byName.get(fileReference);
+                const selectedFile = byName.get(getFilenameKey(fileReference));
                 if (!selectedFile) {
                     continue;
                 }
-                matchedFileNames.add(fileReference);
+                matchedFileNames.add(getFilenameKey(fileReference));
                 await action.batchPlay([selectLayer(layerId)], { modalBehavior: "execute" });
                 await action.batchPlay([relinkPlacedLayer(selectedFile.token)], { modalBehavior: "execute" });
                 relinkedLayerCount += 1;
             }
-        }, { commandName: "Relink Smart Objects" });
-    });
+        }
+        finally {
+            await restoreLayerSelection(originalSelectionIds);
+        }
+    }, { commandName: "Relink Smart Objects" });
     return {
         matchedFileCount: matchedFileNames.size,
         relinkedLayerCount
@@ -146,29 +124,6 @@ function getActiveDocument() {
     catch (_error) {
         return null;
     }
-}
-function getActiveDocumentId() {
-    return getDocumentId(getActiveDocument());
-}
-function shouldIgnoreHostNotification() {
-    return hostNotificationSuppressionDepth > 0 || Date.now() < hostNotificationSuppressionUntil;
-}
-async function runWithSuppressedHostNotifications(callback) {
-    const release = suppressHostNotifications();
-    try {
-        return await callback();
-    }
-    finally {
-        release();
-    }
-}
-function suppressHostNotifications(graceMs = 750) {
-    hostNotificationSuppressionDepth += 1;
-    hostNotificationSuppressionUntil = Math.max(hostNotificationSuppressionUntil, Date.now() + graceMs);
-    return function releaseHostNotificationSuppression() {
-        hostNotificationSuppressionDepth = Math.max(0, hostNotificationSuppressionDepth - 1);
-        hostNotificationSuppressionUntil = Math.max(hostNotificationSuppressionUntil, Date.now() + graceMs);
-    };
 }
 function toArray(value) {
     if (!value) {
@@ -229,18 +184,20 @@ function getLayerId(layer) {
     }
     return null;
 }
-function getDocumentId(documentRef) {
-    if (!documentRef || typeof documentRef !== "object") {
-        return null;
+function getSelectedLayerIds(documentRef) {
+    if (!documentRef || typeof documentRef !== "object" || !("activeLayers" in documentRef)) {
+        return [];
     }
     const candidate = documentRef;
-    if (typeof candidate.id === "number") {
-        return candidate.id;
+    const activeLayers = toArray(candidate.activeLayers);
+    const ids = [];
+    for (let index = 0; index < activeLayers.length; index += 1) {
+        const layerId = getLayerId(activeLayers[index]);
+        if (layerId !== null) {
+            ids.push(layerId);
+        }
     }
-    if (typeof candidate._id === "number") {
-        return candidate._id;
-    }
-    return null;
+    return ids;
 }
 async function getLayerDescriptor(layerId) {
     const response = await action.batchPlay([{
@@ -260,6 +217,9 @@ function extractFileReference(descriptor) {
     }
     const linkedPath = (0, project_path_1.extractNativePath)(descriptor.smartObject && descriptor.smartObject.link);
     return (0, project_path_1.getBasename)(linkedPath);
+}
+function getFilenameKey(value) {
+    return value.trim().toLocaleLowerCase();
 }
 function summarizeOccurrences(occurrences) {
     const map = new Map();
@@ -299,6 +259,26 @@ function selectLayer(layerId) {
         _target: [{ _ref: "layer", _id: layerId }],
         layerID: [layerId]
     };
+}
+function selectLayerWithModifier(layerId, addToSelection) {
+    const descriptor = selectLayer(layerId);
+    if (addToSelection) {
+        descriptor.selectionModifier = {
+            _enum: "selectionModifierType",
+            _value: "addToSelectionContinuous"
+        };
+    }
+    return descriptor;
+}
+async function restoreLayerSelection(layerIds) {
+    if (layerIds.length === 0) {
+        return;
+    }
+    const descriptors = [];
+    for (let index = 0; index < layerIds.length; index += 1) {
+        descriptors.push(selectLayerWithModifier(layerIds[index], index > 0));
+    }
+    await action.batchPlay(descriptors, { modalBehavior: "execute" });
 }
 function relinkPlacedLayer(sessionToken) {
     return {

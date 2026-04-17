@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This repository contains a standalone Adobe Photoshop UXP plugin for scanning and relinking linked Smart Objects across open Photoshop documents.
+This repository contains a standalone Adobe Photoshop UXP plugin for scanning and relinking linked Smart Objects in the current Photoshop document.
 
 ## Project Intent
 
@@ -14,8 +14,8 @@ This repository contains a standalone Adobe Photoshop UXP plugin for scanning an
 - `index.html` + `style.css`: panel shell and styling.
 - `panel-loader.js`: small root loader that imports the compiled panel runtime from `build/`.
 - `main.cjs`: plugin entrypoint registration.
-- `src/ui/panel.ts`: panel state, DOM bindings, render logic, status messages, file picker actions, host-notification refresh behavior.
-- `src/core/photoshop.ts`: Photoshop-specific logic for scanning linked Smart Objects, relinking them with batchPlay, and registering host notifications.
+- `src/ui/panel.ts`: panel state, DOM bindings, render logic, status messages, and file picker actions.
+- `src/core/photoshop.ts`: Photoshop-specific logic for scanning linked Smart Objects and relinking them with batchPlay.
 - `src/core/project-path.ts`: path normalization, folder extraction, inside-root checks, and display formatting.
 - `src/types.ts`: shared types for scan summaries and relink results.
 - `build/`: compiled JavaScript output that Photoshop actually runs.
@@ -46,7 +46,7 @@ This repository contains a standalone Adobe Photoshop UXP plugin for scanning an
 - Group results by `fileReference` / filename.
 - Show a simple linked-file list with missing-link status.
 - Allow relinking by choosing replacement files and matching them by exact filename.
-- Auto-refresh on Photoshop `select`, `open`, and `close` notifications after the user has already run one scan.
+- Load and reload only when the user presses the panel buttons.
 
 ## Known Gaps And Risks
 
@@ -59,21 +59,20 @@ This repository contains a standalone Adobe Photoshop UXP plugin for scanning an
 ## Verification
 
 - Run `npm run build` after TypeScript changes.
-- If you change path logic, manually test at least:
+- If you change scan logic, manually test at least:
 - A normal local PSD.
 - A PSD with missing links.
-- A PSD with linked assets outside the chosen root.
-- Multiple open documents with the same linked filename.
+- A PSD with similarly named linked assets that differ only by filename casing.
 - If you change relink behavior, confirm the relinked layer remains linked and points to the intended asset.
 - Validate in Photoshop or UXP Developer Tool after UI or manifest changes. Browser assumptions are not enough in UXP.
 
 ## Recommended Next Tasks
 
-1. Fix the manifest icon file naming mismatch before the first real load test.
-2. Load the plugin in UXP Developer Tool and verify the panel opens.
-3. Smoke-test scan behavior on 2-3 real PSDs with linked Smart Objects.
-4. Confirm relink behavior on a controlled test document before using it on production assets.
-5. Decide whether the automatic project root fallback should stay as “active document folder” or use a more opinionated project-root heuristic.
+1. Load the plugin in UXP Developer Tool and verify the panel opens.
+2. Smoke-test scan behavior on 2-3 real PSDs with linked Smart Objects.
+3. Confirm relink behavior on a controlled test document before using it on production assets.
+4. Decide whether relink should remain exact-filename-only or offer an optional per-row replace flow.
+5. Package and test the installed plugin build before any release use.
 
 ## Packaging Notes
 
